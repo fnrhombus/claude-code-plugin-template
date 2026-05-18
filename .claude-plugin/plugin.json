@@ -7,6 +7,5 @@
   },
   "homepage": "https://github.com/fnrhombus/TODO-repo-name",
   "repository": "https://github.com/fnrhombus/TODO-repo-name",
-  "license": "MIT",
-  "hooks": "./hooks/hooks.json"
+  "license": "MIT"
 }

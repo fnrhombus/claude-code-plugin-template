@@ -13,30 +13,33 @@ After cloning the new repo:
 5. **Update `hooks/hooks.json`** if the hook event or matcher is different from the default `PreToolUse` / `Bash`.
 6. **Rewrite `README.md`** as *advertising* — lead with the problem, show the before/after, keep install minimal. See `fnrhombus/claude-code-pathfix` for a reference.
 7. **Add the `claude-code-plugin` topic** to the repo: `gh repo edit --add-topic claude-code-plugin`. This is how `fnrhombus/claude-plugins` (the central marketplace) discovers the plugin — without this topic, the plugin will never show up in `/plugin install`.
-8. **Commit + push** to `main`.
+8. **Add the `AUTOMERGE_PAT` repository secret.** Required for the release-please + auto-merge + marketplace-dispatch chain. The PAT needs `repo` + `workflow` scope, and `workflow` scope on `fnrhombus/claude-plugins` so the dispatch step can fire the marketplace rebuild. `gh secret set AUTOMERGE_PAT --body "<token>"`.
+9. **Commit + push** to `main`.
 
 ## Publishing a new version
 
-1. Bump the `version` in both `package.json` and `.claude-plugin/plugin.json` (keep them in sync).
-2. Commit, tag (`git tag v0.2.0 && git push --tags`), let CI publish to npm.
-3. **Refresh the marketplace** so users see the new version within minutes instead of waiting for the daily cron:
+Use [conventional commits](https://www.conventionalcommits.org/). `feat:` bumps minor, `fix:` bumps patch, `feat!:` (or `BREAKING CHANGE:` in the body) bumps major. `docs:`, `refactor:`, `chore:`, `ci:` don't bump.
 
-   ```bash
-   gh workflow run update-marketplace.yml --repo fnrhombus/claude-plugins
-   ```
+The flow is fully automatic:
 
-   This triggers the marketplace repo's `update-marketplace.yml` workflow manually. It will re-scan all `claude-code-plugin`-tagged repos (including this one), read the updated `plugin.json`, and commit a refreshed `marketplace.json` to itself.
+1. Merge a `feat:` or `fix:` PR to `main`.
+2. `release-please.yml` opens (or updates) a `chore(main): release vX.Y.Z` PR with the proposed bump + auto-generated `CHANGELOG.md` entry.
+3. `auto-merge.yml` enables auto-merge on that PR; once required checks pass it merges.
+4. The merge triggers release-please's second run, which creates the tag and a GitHub Release.
+5. The same workflow then dispatches `update-marketplace.yml` on `fnrhombus/claude-plugins`, so the new version lands in the marketplace within seconds.
 
-   Alternatively, wait — the marketplace refreshes on a daily cron anyway. The manual trigger is only useful if you want the new version visible immediately.
+No manual version bumps, no manual tagging, no manual marketplace pokes.
 
-## Why the indirect flow?
+## Why a PAT?
 
-GitHub's `GITHUB_TOKEN` is scoped to its own repo, so this plugin's CI can't push to `fnrhombus/claude-plugins` directly. Cross-repo pushes would need a Personal Access Token stored as a secret in every plugin repo — annoying to set up once per plugin, and a long-lived credential to manage.
+Two cross-trigger requirements force the use of `AUTOMERGE_PAT`:
 
-Instead, the marketplace *pulls* from plugin repos on a schedule using its own `GITHUB_TOKEN` (which naturally has write access to itself). Plugin repos don't need any secrets or auth; they just need the `claude-code-plugin` topic and a valid `.claude-plugin/plugin.json` on their default branch.
+1. **In-repo workflow chaining.** GitHub suppresses workflow runs for `GITHUB_TOKEN`-actored events to prevent loops. The release PR has to be opened by a PAT-actored event so its merge can trigger downstream workflows (the tag-creating second run of release-please, plus this repo's `test`/`build` jobs if any).
+2. **Cross-repo dispatch.** `GITHUB_TOKEN` is scoped to its own repo; it can't dispatch a workflow on `fnrhombus/claude-plugins`. The PAT bridges that boundary so the marketplace rebuild fires immediately on release instead of waiting for its daily cron.
 
 ## What NOT to do
 
-- **Don't hand-edit `fnrhombus/claude-plugins/.claude-plugin/marketplace.json`.** The cron overwrites it on every run. Update the source (`.claude-plugin/plugin.json` in *this* repo) and let the cron propagate.
+- **Don't hand-edit `fnrhombus/claude-plugins/.claude-plugin/marketplace.json`.** Both the daily cron and the per-release dispatch overwrite it. Update the source (`.claude-plugin/plugin.json` here, bumped automatically by release-please) and let the dispatch propagate.
+- **Don't put `"hooks": "./hooks/hooks.json"` in `.claude-plugin/plugin.json`.** Claude Code auto-loads `hooks/hooks.json`; listing it again causes a duplicate-load error. The `hooks` field is only for *additional* hook files beyond the standard one.
 - **Don't forget the `claude-code-plugin` topic.** Without it, the marketplace has no way to discover the repo, and users can't install the plugin.
 - **Don't skip the `dist/` commit.** Plugins distributed via `/plugin install` are served directly from the GitHub repo contents — there's no build step on the user side. If this plugin has a build step (tsup, etc.), commit `dist/` alongside `src/` so the plugin hook can actually run what it advertises.

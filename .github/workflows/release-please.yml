@@ -1,0 +1,49 @@
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          # PAT (not GITHUB_TOKEN) so the release PR's pull_request.opened
+          # event fires auto-merge.yml. GITHUB_TOKEN-created PRs don't
+          # trigger downstream workflows, which would leave the release PR
+          # sitting un-merged.
+          token: ${{ secrets.AUTOMERGE_PAT }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # Auto-merge the release PR so feature PR → release PR → tag is a
+      # single user-visible merge. The PAT-created PR triggers auto-merge.yml
+      # which enables auto-merge from the PR side; this is a safety net.
+      - name: Auto-merge release PR
+        if: ${{ steps.release.outputs.pr }}
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMERGE_PAT }}
+        run: |
+          pr_number=$(echo '${{ steps.release.outputs.pr }}' | jq -r .number)
+          gh pr merge "$pr_number" --auto --squash --repo "$GITHUB_REPOSITORY"
+
+      # When release-please actually created a release (release_created=true
+      # on its second run, after the release PR is merged and the tag is
+      # cut), dispatch the marketplace's rebuild workflow so the new plugin
+      # tag/version lands in fnrhombus/claude-plugins' marketplace.json within
+      # seconds instead of waiting for its daily cron.
+      - name: Trigger marketplace rebuild
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMERGE_PAT }}
+        run: |
+          gh workflow run update-marketplace.yml \
+            --repo fnrhombus/claude-plugins
+          echo "dispatched marketplace rebuild after release ${{ steps.release.outputs.tag_name }}"

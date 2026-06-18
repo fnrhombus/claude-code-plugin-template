@@ -1,6 +1,6 @@
 # Claude Code Plugin Template
 
-This is a template repo. When a new plugin is created from it (`gh repo create --template fnrhombus/claude-code-plugin-template`), this file tells Claude (and future-you) what to do.
+This is a template repo. When a new plugin is created from it (`gh repo create --template fntemplate/claude-code-plugin`), this file tells Claude (and future-you) what to do.
 
 ## First-time setup for a new plugin
 

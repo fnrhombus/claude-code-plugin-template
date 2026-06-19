@@ -9,9 +9,9 @@ After cloning the new repo:
 1. **Search-and-replace `TODO-plugin-name`** in `.claude-plugin/plugin.json`, `README.md`, and `package.json` with the actual plugin name (kebab-case, e.g. `claude-code-thingfix`).
 2. **Search-and-replace `TODO-repo-name`** with the actual GitHub repo name (usually the same as the plugin name).
 3. **Update `.claude-plugin/plugin.json`** with a real `description`.
-4. **Write the actual plugin code** in `src/index.ts`. Use [`@fnrhombus/claude-code-hooks`](https://github.com/fnrhombus/claude-code-hooks) for the typed hook wrapper — it handles all the stdin/stdout/envelope plumbing.
+4. **Write the actual plugin code** in `src/index.ts`. Use [`@fnrhombus/claude-code-hooks`](https://github.com/fnclaude/hooks) for the typed hook wrapper — it handles all the stdin/stdout/envelope plumbing.
 5. **Update `hooks/hooks.json`** if the hook event or matcher is different from the default `PreToolUse` / `Bash`.
-6. **Rewrite `README.md`** as *advertising* — lead with the problem, show the before/after, keep install minimal. See `fnrhombus/claude-code-pathfix` for a reference.
+6. **Rewrite `README.md`** as *advertising* — lead with the problem, show the before/after, keep install minimal. See `fnclaude/pathfix` for a reference.
 7. **Add the `claude-code-plugin` topic** to the repo: `gh repo edit --add-topic claude-code-plugin`. This is how `fnrhombus/claude-plugins` (the central marketplace) discovers the plugin — without this topic, the plugin will never show up in `/plugin install`.
 8. **Add the `AUTOMERGE_PAT` repository secret.** Required for the release-please + auto-merge + marketplace-dispatch chain. The PAT needs `repo` + `workflow` scope, and `workflow` scope on `fnrhombus/claude-plugins` so the dispatch step can fire the marketplace rebuild. `gh secret set AUTOMERGE_PAT --body "<token>"`.
 9. **Commit + push** to `main`.
